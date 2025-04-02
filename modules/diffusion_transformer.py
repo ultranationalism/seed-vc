@@ -215,10 +215,11 @@ class DiT(torch.nn.Module):
             x_in = torch.cat([style.unsqueeze(1), x_in], dim=1)
         if self.time_as_token:
             x_in = torch.cat([t1.unsqueeze(1), x_in], dim=1)
-        x_mask = sequence_mask(x_lens + self.style_as_token + self.time_as_token).to(x.device).unsqueeze(1)
+        x_lens=x_lens + self.style_as_token + self.time_as_token
+        x_mask = sequence_mask(x_lens).to(x.device).unsqueeze(1) if not x_lens.size()==torch.Size([1]) else None
         input_pos = self.input_pos[:x_in.size(1)]  # (T,)
-        x_mask_expanded = x_mask[:, None, :].repeat(1, 1, x_in.size(1), 1) if not self.is_causal else None
-        x_res = self.transformer(x_in, t1.unsqueeze(1), input_pos, x_mask_expanded)
+        x_mask_expanded = x_mask[:, None, :].repeat(1, 1, x_in.size(1), 1) if not x_mask==None else None
+        x_res = self.transformer(x_in, t1.unsqueeze(1), input_pos, x_mask_expanded,is_causal=self.is_causal)
         x_res = x_res[:, 1:] if self.time_as_token else x_res
         x_res = x_res[:, 1:] if self.style_as_token else x_res
         if self.long_skip_connection:
@@ -227,6 +228,8 @@ class DiT(torch.nn.Module):
             x = self.conv1(x_res)
             x = x.transpose(1, 2)
             t2 = self.t_embedder2(t)
+            if x_mask==None:
+                x_mask=True
             x = self.wavenet(x, x_mask, g=t2.unsqueeze(2)).transpose(1, 2) + self.res_projection(
                 x_res)  # long residual connection
             x = self.final_layer(x, t1).transpose(1, 2)

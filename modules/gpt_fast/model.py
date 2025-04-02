@@ -165,9 +165,11 @@ class Transformer(nn.Module):
                 context: Optional[Tensor] = None,
                 context_input_pos: Optional[Tensor] = None,
                 cross_attention_mask: Optional[Tensor] = None,
+                is_causal:Optional[bool] = None
                 ) -> Tensor:
         assert self.freqs_cis is not None, "Caches must be initialized first"
-        if mask is None: # in case of non-causal model
+        is_causal = is_causal or (is_causal is None and mask is None)
+        if is_causal: # in case of non-causal model
             if not self.training and self.use_kv_cache:
                 mask = self.causal_mask[None, None, input_pos]
             else:
